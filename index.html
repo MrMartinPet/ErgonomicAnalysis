@@ -47,38 +47,36 @@
         padding: 18px;
       }
 
-   .topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
+  .topbar {
   padding: 10px 0 18px;
 }
 
 .brand {
   width: 100%;
   display: flex;
+  justify-content: space-between;
   align-items: center;
 }
 
 .logo {
-  height: 18px;
-  max-width: 120px;
-  margin-left: auto;
+  height: 16px;
+  max-width: 110px;
+  object-fit: contain;
 }
 
 .titleBlock h2 {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   line-height: 1;
   text-transform: uppercase;
+  letter-spacing: .03em;
 }
 
 .kicker {
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--m);
-  font-size: .6rem;
-  letter-spacing: .14em;
+  font-size: .55rem;
+  letter-spacing: .13em;
   text-transform: uppercase;
 }
 
@@ -719,17 +717,16 @@
 
   <body>
     <div class="app">
-      <header class="topbar">
-        <div class="brand">
-          <img class="logo" src="./Dometic_hori_office_neg_logga_vit.png" alt="Dometic">
+     <header class="topbar">
+  <div class="brand">
+    <div class="titleBlock">
+      <h2>Ergonomianalys</h2>
+      <div class="kicker">Lyfta & bära (KIM 1)</div>
+    </div>
 
-          <div class="titleBlock">
-            <h2>Ergonomianalys</h2>
-            <div class="kicker">Lyfta & bära (KIM 1)</div>
-          </div>
-        </div>
-
-      </header>
+    <img class="logo" src="./Dometic_hori_office_neg_logga_vit.png" alt="Dometic">
+  </div>
+</header>
 
       <main class="screen">
         <div class="hero">
