@@ -725,7 +725,7 @@
 
           <div class="titleBlock">
             <h2>Ergonomianalys</h2>
-            <div class="kicker">Dometic Production System</div>
+            <div class="kicker">Lyfta & bära (KIM 1)</div>
           </div>
         </div>
 
@@ -819,7 +819,7 @@
 
           <p class="note">
             För att bestämma bedömningspoängen ska den arbetsställning som är vanligast användas.
-            Om arbetaren intar olika arbetsställningar med lasten måste en sammanvägning göras.
+            Om operatören intar olika arbetsställningar med lasten måste en sammanvägning göras.
             Använd inte tillfälliga extrema värden.
           </p>
 
@@ -885,22 +885,22 @@
           <div class="legend">
             <div class="green">
               <strong>0 till 9 poäng</strong><br>
-              Låg belastning. Fysisk överbelastning är osannolik.
+              Låg belastningssituation, fysisk överbelastning är osannolik. 
             </div>
 
             <div class="yellow">
               <strong>10 till 24 poäng</strong><br>
-              Ökad belastning. Ombyggnad är fördelaktig.
+              Ökad belastningssituation, fysisk överbelastning är möjlig för personer med lägre fysisk kapacitet. För denna grupp är det fördelaktigt att ändra arbetsplatsens utformning. 
             </div>
 
             <div class="orange">
               <strong>25 till 49 poäng</strong><br>
-              Tydligt ökad belastning. Ombyggnad rekommenderas.
+              Kraftigt ökad belastningssituation, fysisk överbelastning möjlig. En ny utformning av arbetsplatsen rekommenderas
             </div>
 
             <div class="red">
               <strong>50+ poäng</strong><br>
-              Hög belastning. Arbetsplatsens utformning måste ändras.
+              Hög belastningssituation, fysisk överbelastning är sannolik. Arbetsplatsens utformning måste ändras. 
             </div>
           </div>
         </section>
@@ -1059,20 +1059,20 @@
 
           let cls = 'green';
           let range = '0 till 9 poäng';
-          let txt = 'Låg belastning. Fysisk överbelastning är osannolik.';
+          let txt = 'Låg belastningssituation, fysisk överbelastning är osannolik.';
 
           if (risk >= 50) {
             cls = 'red';
             range = '50+ poäng';
-            txt = 'Hög belastning. Fysisk överbelastning är sannolik. Arbetsplatsens utformning måste ändras.';
+            txt = 'Hög belastningssituation, fysisk överbelastning är sannolik. Arbetsplatsens utformning måste ändras.';
           } else if (risk >= 25) {
             cls = 'orange';
             range = '25 till 49 poäng';
-            txt = 'Tydligt ökad belastning. Fysisk överbelastning är möjlig. Ombyggnad rekommenderas.';
+            txt = 'Kraftigt ökad belastningssituation, fysisk överbelastning möjlig. En ny utformning av arbetsplatsen rekommenderas.';
           } else if (risk >= 10) {
             cls = 'yellow';
             range = '10 till 24 poäng';
-            txt = 'Ökad belastning. Fysisk överbelastning är möjlig. Ombyggnad är fördelaktig.';
+            txt = 'Ökad belastningssituation, fysisk överbelastning är möjlig för personer med lägre fysisk kapacitet. För denna grupp är det fördelaktigt att ändra arbetsplatsens utformning.';
           }
 
           $('resultBox').className = 'resultBox ' + cls;
@@ -1172,14 +1172,14 @@
             </div>
 
             <div class="printLegend">
-              <div class="green"><b>0 till 9</b><br>Låg belastning</div>
-              <div class="yellow"><b>10 till 24</b><br>Ökad belastning</div>
-              <div class="orange"><b>25 till 49</b><br>Ombyggnad rekommenderas</div>
-              <div class="red"><b>50+</b><br>Måste ändras</div>
+              <div class="green"><b>0 till 9</b><br>Låg belastningssituation, fysisk överbelastning är osannolik.</div>
+              <div class="yellow"><b>10 till 24</b><br>Ökad belastningssituation, fysisk överbelastning är möjlig för personer med lägre fysisk kapacitet. För denna grupp är det fördelaktigt att ändra arbetsplatsens utformning. </div>
+              <div class="orange"><b>25 till 49</b><br>Kraftigt ökad belastningssituation, fysisk överbelastning möjlig. En ny utformning av arbetsplatsen rekommenderas.</div>
+              <div class="red"><b>50+</b><br>Hög belastningssituation, fysisk överbelastning är sannolik. Arbetsplatsens utformning måste ändras.</div>
             </div>
 
             <div class="printComments">
-              <b>Kommentarer:</b><br>
+              <b>Kontroll av arbetsplatsen är nödvändig av andra skäl, skriv orsaker:</b><br>
               ${$('comments').value || ''}
             </div>
           `;
