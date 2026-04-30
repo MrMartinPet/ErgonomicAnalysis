@@ -748,7 +748,8 @@
           <h2>Ergonomianalys</h2>
           <p class="hint">
             Välj poäng för antal lyft, last och vikt, arbetsförhållanden samt arbetsställning.
-            Riskpoängen räknas ut automatiskt.
+            Riskpoängen räknas ut automatiskt. Det är möjligt att använda mellanvärden som 3, 5 eller 6,5 om förhållandena
+            inte fullt ut motsvarar en fast poängnivå.
           </p>
         </div>
 
@@ -757,11 +758,6 @@
             <div class="chapter">1</div>
             <h3 class="sectionTitle">Processinformation</h3>
           </div>
-
-          <p class="note">
-            Obs! Det är möjligt att använda mellanvärden som 3, 5 eller 7 om förhållandena
-            inte fullt ut motsvarar en fast poängnivå.
-          </p>
 
           <div class="meta">
             <div class="field">
@@ -804,7 +800,7 @@
           <div class="options" id="weightOptions"></div>
 
           <div class="customScore">
-            <input id="weightCustom" type="number" min="0" step="1" placeholder="Egen poäng, till exempel 3, 5 eller 7">
+            <input id="weightCustom" type="number" min="0" step="1" placeholder="Egen poäng, till exempel 3, 5 eller 8">
           </div>
         </section>
 
@@ -814,16 +810,16 @@
             <h3 class="sectionTitle">Arbetsförhållanden</h3>
           </div>
 
-          <p class="note">
-            0 poäng: god ergonomi, gott om plats, inga fysiska hinder, jämnt och fast underlag,
-            god belysning och låg halkrisk. 1 poäng: begränsat utrymme eller ogynnsamma
-            förhållanden. 2 poäng: mycket begränsat rörelseutrymme eller instabil tyngdpunkt i lasten.
-          </p>
+         <p class="note">
+  <strong>0 poäng:</strong> god ergonomi, gott om plats, inga fysiska hinder, jämnt och fast underlag, god belysning och låg halkrisk.<br>
+  <strong>1 poäng:</strong> begränsat utrymme eller ogynnsamma förhållanden.<br>
+  <strong>2 poäng:</strong> mycket begränsat rörelseutrymme eller instabil tyngdpunkt i lasten.
+</p>
 
           <div class="options" id="conditionOptions"></div>
 
           <div class="customScore">
-            <input id="conditionCustom" type="number" min="0" step="1" placeholder="Egen poäng, till exempel 1 eller 2">
+            <input id="conditionCustom" type="number" min="0" step="1" placeholder="Egen poäng, till exempel 0,5 eller 1,5">
           </div>
         </section>
 
