@@ -552,6 +552,11 @@
 
       @media print {
         @page {
+          size: A4 portrait;
+          margin: 7mm;
+        }
+
+        @page summary {
           size: A4 landscape;
           margin: 7mm;
         }
@@ -635,6 +640,7 @@
         }
 
         .printSheet {
+          page: summary;
           break-before: page;
           page-break-before: always;
         }
