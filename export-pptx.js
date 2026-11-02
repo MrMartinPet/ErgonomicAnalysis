@@ -15,6 +15,11 @@
     const drawingParts = Object.keys(zip.files).filter(name => /^ppt\/(slides|slideMasters|slideLayouts)\/[^/]+\.xml$/.test(name));
     for (const name of drawingParts) {
       const xml = await zip.file(name).async('string');
+      for (const match of xml.matchAll(/<a:(?:tcPr|bodyPr)\b[^>]*\banchor="([^"]+)"/g)) {
+        if (!['t', 'ctr', 'b', 'just', 'dist'].includes(match[1])) {
+          throw new Error('PowerPoint-filen innehåller en ogiltig textformatering. Uppdatera sidan och försök igen.');
+        }
+      }
       const ids = Array.from(xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g), match => Number(match[1]));
       let next = Math.max(1, ...ids) + 1;
       const used = new Set();
@@ -26,6 +31,15 @@
         return tag.replace(/\bid="\d+"/, `id="${replacement}"`);
       });
       zip.file(name, normalized);
+    }
+
+    // PptxGenJS places the notes master after the slide list. ECMA-376's
+    // CT_Presentation sequence requires it before that list.
+    let presentation = await zip.file('ppt/presentation.xml').async('string');
+    const notesMaster = presentation.match(/<p:notesMasterIdLst>[^]*?<\/p:notesMasterIdLst>/);
+    if (notesMaster && presentation.indexOf(notesMaster[0]) > presentation.indexOf('<p:sldIdLst>')) {
+      presentation = presentation.replace(notesMaster[0], '').replace('<p:sldIdLst>', notesMaster[0] + '<p:sldIdLst>');
+      zip.file('ppt/presentation.xml', presentation);
     }
 
     // The writer also declares extra, unused masters for multi-slide reports.

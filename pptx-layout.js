@@ -38,7 +38,7 @@
     const head = value => ({ text: value, options: { bold: true, color: R.C.white, fill: '2C6267', fontSize: 11 } });
     const rows = [['Faktor', 'Vald nivå', 'Poäng', 'Motivering'].map(head), ...m.factors.map(f => [
       { text: f.label, options: { bold: true } }, { text: f.choice, options: { fontSize: 11.5 } },
-      { text: R.format(f.score), options: { fontSize: 17, bold: true, align: 'center', valign: 'mid' } },
+      { text: R.format(f.score), options: { fontSize: 17, bold: true, align: 'center', valign: 'middle' } },
       { text: f.commentPreview, options: { fontSize: 12 } }
     ])];
     summary.addTable(rows, { x: M, y: 3.25, w: BODY, colW: [1.98, 3.14, .86, BODY - 5.98], rowH: [.34, .70, .70, .70, .70], fontFace: R.FONT, fontSize: 12, color: R.C.black, fill: R.C.white, margin: [5, 7, 4, 7], border: { color: R.C.line, pt: .5 }, valign: 'top', autoPage: false, objectName: 'Valda poäng och motiveringar' });

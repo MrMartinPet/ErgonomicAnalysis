@@ -11,12 +11,27 @@ ctx.window = ctx;
 vm.createContext(ctx);
 for (const filename of ['vendor/pptxgen.bundle.js', 'ole-package.js', 'report-model.js', 'pptx-layout.js', 'export-pptx.js', 'export-excel.js']) vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), ctx);
 
+let packageNumber=0;
 async function validatePowerPointPackage(zip) {
+  // Optional fixtures for independent schema/native Office validation.
+  if (process.env.KIM_PPTX_QA_DIR) {
+    fs.mkdirSync(process.env.KIM_PPTX_QA_DIR,{recursive:true});
+    fs.writeFileSync(path.join(process.env.KIM_PPTX_QA_DIR,`export-${++packageNumber}.pptx`),Buffer.from(await zip.generateAsync({type:'uint8array'})));
+  }
   for (const name of Object.keys(zip.files).filter(n=>/^ppt\/(slides|slideMasters|slideLayouts)\/[^/]+\.xml$/.test(n))) {
     const xml=await zip.file(name).async('string');
     const ids=Array.from(xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g),m=>m[1]);
     assert.equal(new Set(ids).size,ids.length,`${name}: duplicate drawing object IDs make the PowerPoint file non-conformant`);
+    // ECMA-376 ST_TextAnchoringType: "mid" is invalid, even when tolerant
+    // previewers render it. Check the serialized values, not the JS options.
+    for (const match of xml.matchAll(/<a:(?:tcPr|bodyPr)\b[^>]*\banchor="([^"]+)"/g)) {
+      assert(['t','ctr','b','just','dist'].includes(match[1]),`${name}: invalid DrawingML text anchor ${match[1]}`);
+    }
   }
+  const presentation=await zip.file('ppt/presentation.xml').async('string');
+  const notesAt=presentation.indexOf('<p:notesMasterIdLst>');
+  const slidesAt=presentation.indexOf('<p:sldIdLst>');
+  assert(notesAt<0 || slidesAt<0 || notesAt<slidesAt,'CT_Presentation requires notesMasterIdLst before sldIdLst');
   const types=await zip.file('[Content_Types].xml').async('string');
   for (const match of types.matchAll(/<Override\b[^>]*\bPartName="([^"]+)"/g)) assert(zip.file(match[1].replace(/^\//,'')),`Missing declared package part: ${match[1]}`);
   for (const name of Object.keys(zip.files).filter(n=>n.endsWith('.rels'))) {

@@ -19,4 +19,4 @@ Appen är statisk och använder medföljande PptxGenJS 4.0.1 och JSZip 3.10.1. L
 
 ## Verifiering
 
-Kör `node tests/export.test.cjs` med Node 18 eller senare. Testet kontrollerar onepagerns placering, Gibson, kompakta sidantal, separata foton, fullständiga långa kommentarer, inbäddade dokument, riktiga Excel-formler och riskgränser.
+Kör `node tests/export.test.cjs` med Node 18 eller senare. Testet kontrollerar giltiga DrawingML-textankare, ordningen i presentationens XML, unika objekt-ID:n och paketets interna referenser, samt onepagerns placering, Gibson, kompakta sidantal, separata foton, fullständiga långa kommentarer, inbäddade dokument, riktiga Excel-formler och riskgränser. En tolerant förhandsvisning är inte ett kompatibilitetstest för Microsoft PowerPoint.
