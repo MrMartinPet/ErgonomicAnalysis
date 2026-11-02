@@ -22,8 +22,6 @@
 .attachmentActions { display: flex; flex-wrap: wrap; gap: 6px; }
 .exportHelp, .draftState, .appMessage { padding: 0 16px; font-size: .82rem; line-height: 1.45; color: var(--m); }
 .appMessage:empty { display: none; }
-.downloadLinks { padding: 0 16px 16px; }
-.downloadLink { display: inline-block; text-decoration: none; max-width: 100%; overflow-wrap: anywhere; }
 .resetAction { padding: 0 16px 8px; }
 .resetLink { border: 0; background: none; color: var(--m); text-decoration: underline; cursor: pointer; padding: 4px 0; font: inherit; font-size: .8rem; }
 .appMessage.error { color: #a31d28; font-weight: 700; }

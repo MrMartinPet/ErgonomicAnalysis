@@ -4,9 +4,59 @@
   const $ = id => document.getElementById(id);
   const R = window.KimReport;
   const XML = R.xml;
+  function attribute(tag, name) {
+    const match = new RegExp('\\b' + name + '="([^"]*)"').exec(tag);
+    return match ? match[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : null;
+  }
+
+  async function finalizePackage(zip) {
+    // PptxGenJS can give a table the same ID as an earlier title when a logo is
+    // present. Drawing IDs must be unique within each slide/master/layout part.
+    const drawingParts = Object.keys(zip.files).filter(name => /^ppt\/(slides|slideMasters|slideLayouts)\/[^/]+\.xml$/.test(name));
+    for (const name of drawingParts) {
+      const xml = await zip.file(name).async('string');
+      const ids = Array.from(xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g), match => Number(match[1]));
+      let next = Math.max(1, ...ids) + 1;
+      const used = new Set();
+      const normalized = xml.replace(/<p:cNvPr\b[^>]*>/g, tag => {
+        const id = attribute(tag, 'id');
+        if (!used.has(id)) { used.add(id); return tag; }
+        const replacement = String(next++);
+        used.add(replacement);
+        return tag.replace(/\bid="\d+"/, `id="${replacement}"`);
+      });
+      zip.file(name, normalized);
+    }
+
+    // The writer also declares extra, unused masters for multi-slide reports.
+    // Remove declarations for parts it did not create; referenced parts are
+    // checked below, so a genuinely missing dependency cannot be hidden.
+    const types = await zip.file('[Content_Types].xml').async('string');
+    zip.file('[Content_Types].xml', types.replace(/<Override\b[^>]*\/>/g, tag => {
+      const part = attribute(tag, 'PartName');
+      return part && zip.file(part.replace(/^\//, '')) ? tag : '';
+    }));
+    for (const name of Object.keys(zip.files).filter(path => path.endsWith('.rels'))) {
+      const base = name === '_rels/.rels' ? '' : name.slice(0, name.lastIndexOf('/_rels/'));
+      const xml = await zip.file(name).async('string');
+      for (const match of xml.matchAll(/<Relationship\b[^>]*\/>/g)) {
+        if (attribute(match[0], 'TargetMode') === 'External') continue;
+        const target = attribute(match[0], 'Target');
+        if (!target) throw new Error('PowerPoint-filens struktur kunde inte kontrolleras.');
+        const segments = [];
+        const absolute = target.startsWith('/') ? target : base + '/' + target;
+        for (const segment of absolute.split('/')) {
+          if (segment === '..') segments.pop();
+          else if (segment && segment !== '.') segments.push(segment);
+        }
+        if (!zip.file(segments.join('/'))) throw new Error('PowerPoint-filen saknar en nödvändig del. Försök exportera igen.');
+      }
+    }
+    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+  }
+
   async function embedDocuments(buffer, objects) {
-    if (!objects.length) return buffer;
-    const zip = await JSZip.loadAsync(buffer);
+    const zip = await JSZip.loadAsync(buffer, { checkCRC32: true });
     let contentTypes = await zip.file('[Content_Types].xml').async('string');
     objects.forEach((object, i) => {
       contentTypes = contentTypes.replace('</Types>', `<Override PartName="/ppt/embeddings/oleObject${i + 1}.bin" ContentType="application/vnd.openxmlformats-officedocument.oleObject"/></Types>`);
@@ -32,7 +82,7 @@
       zip.file(relPath, rels);
       zip.file(`ppt/embeddings/oleObject${i + 1}.bin`, KimOlePackage(file.name, file.bytes));
     }
-    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+    return finalizePackage(zip);
   }
 
 

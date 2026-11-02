@@ -13,7 +13,6 @@
   let resetting = false;
   let pending = 0;
   let revision = 0;
-  let lastDownloadUrl = null;
   const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
   const sizeText = size => size < 1048576 ? `${Math.ceil(size / 1024)} kB` : `${(size / 1048576).toFixed(1).replace('.', ',')} MB`;
   const make = (tag, className, text) => {
@@ -29,23 +28,16 @@
   }
 
   function download(blob, filename) {
-    if (lastDownloadUrl) URL.revokeObjectURL(lastDownloadUrl);
     const url = URL.createObjectURL(blob);
-    lastDownloadUrl = url;
     const link = make('a');
     link.href = url;
     link.download = filename;
-    link.className = 'btn primary downloadLink';
-    link.textContent = 'Ladda ned ' + filename;
-    let links = $('downloadLinks');
-    if (!links) {
-      links = make('div', 'downloadLinks');
-      links.id = 'downloadLinks';
-      links.dataset.noPrint = '';
-      $('appMessage').after(links);
-    }
-    links.replaceChildren(link);
+    link.hidden = true;
+    link.setAttribute('aria-hidden', 'true');
+    document.body.append(link);
+    $('downloadLinks')?.remove();
     link.click();
+    setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 60000);
   }
 
   function makeUploader(text, id, accept, handler) {
