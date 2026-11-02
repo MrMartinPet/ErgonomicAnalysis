@@ -24,6 +24,8 @@
 .appMessage:empty { display: none; }
 .downloadLinks { padding: 0 16px 16px; }
 .downloadLink { display: inline-block; text-decoration: none; max-width: 100%; overflow-wrap: anywhere; }
+.resetAction { padding: 0 16px 8px; }
+.resetLink { border: 0; background: none; color: var(--m); text-decoration: underline; cursor: pointer; padding: 4px 0; font: inherit; font-size: .8rem; }
 .appMessage.error { color: #a31d28; font-weight: 700; }
 .btn:disabled, .uploadInput:disabled + span { opacity: .55; cursor: wait; }
 @media (max-width: 800px) {
@@ -39,6 +41,47 @@
   .imageActions .btn { min-height: 40px; }
 }
 @media print {
+  .printDocument > .printSheet { display: none !important; }
+  .compactPrintPage, .reportTextPage { font-family: Gibson, Arial, sans-serif; color: #000; background: #fff; }
+  .compactPrintPage { height: 190mm; position: relative; break-after: page; page-break-after: always; }
+  .compactPrintPage:last-child { break-after: auto; page-break-after: auto; }
+  .reportHeader { display: flex; align-items: center; justify-content: space-between; height: 12mm; margin-bottom: 3mm; }
+  .reportHeader h1 { font-family: 'Gibson Light', Gibson, Arial, sans-serif; font-size: 21pt; font-weight: 400; text-transform: uppercase; margin: 0; }
+  .reportHeader img { width: 37mm; height: auto; }
+  .reportMeta { display: grid; grid-template-columns: .6fr 1.2fr 1.2fr; gap: 5mm; padding-bottom: 4mm; border-bottom: .2mm solid #c6c6c6; }
+  .reportMeta small { display: block; font-size: 7.5pt; text-transform: uppercase; color: #666; }
+  .reportMeta strong { display: block; margin-top: 1mm; font-size: 11pt; font-weight: 400; }
+  .reportRisk { display: grid; grid-template-columns: 42mm 1fr; gap: 6mm; padding: 5mm 0; min-height: 34mm; }
+  .reportRiskValue { font-family: 'Gibson Light', Gibson, Arial, sans-serif; font-size: 45pt; line-height: 1; }
+  .reportRiskValue small { display: block; margin-top: 2mm; font: 8pt Gibson, Arial, sans-serif; text-transform: uppercase; }
+  .reportRisk h2 { margin: 1mm 0 2mm; font-family: 'Gibson Light', Gibson, Arial, sans-serif; font-size: 17pt; font-weight: 400; }
+  .reportRisk p { margin: 0 0 2mm; font-size: 10pt; }
+  .reportRisk small { font-size: 8pt; color: #666; }
+  .reportTable { width: 100%; border-collapse: collapse; font-size: 9.3pt; table-layout: fixed; }
+  .reportTable th { background: #2c6267; color: #fff; text-align: left; padding: 2mm; font-weight: 600; }
+  .reportTable td { border: .2mm solid #c6c6c6; padding: 2mm; vertical-align: top; white-space: pre-line; overflow-wrap: anywhere; }
+  .compactPrintPage .reportTable td { height: 17mm; }
+  .reportTable th:nth-child(1) { width: 19%; }
+  .reportTable th:nth-child(2) { width: 29%; }
+  .reportTable th:nth-child(3) { width: 8%; }
+  .reportTable th:nth-child(4) { width: 44%; }
+  .reportPoints { text-align: center; font-size: 14pt; font-weight: 600; }
+  .reportLegend { display: grid; grid-template-columns: repeat(4,1fr); margin-top: 3mm; font-size: 8pt; }
+  .reportLegend span { padding: 1.5mm 2mm; }
+  .reportBottom { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; margin-top: 4mm; }
+  .reportBottom h3 { font-size: 8pt; text-transform: uppercase; margin: 0 0 1.5mm; }
+  .reportBottom p { font-size: 9pt; margin: 0; white-space: pre-line; }
+  .reportFooter { position: absolute; bottom: 0; left: 0; right: 0; border-top: .2mm solid #c6c6c6; padding-top: 2mm; color: #666; font-size: 7pt; }
+  .reportPhotoGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm 6mm; }
+  .reportPhotoGrid figure { margin: 0; min-width: 0; break-inside: avoid; }
+  .reportPhotoGrid h3 { font-size: 10pt; margin: 0 0 2mm; }
+  .reportPhotoGrid img { width: 100%; height: 59mm; object-fit: contain; }
+  .reportPhotoGrid figcaption { font-size: 8pt; margin-top: 1mm; white-space: pre-line; }
+  .reportTextPage { break-before: page; page-break-before: always; position: relative; }
+  .reportTextPage section { break-inside: auto; margin: 4mm 0; }
+  .reportTextPage h3 { font-size: 11pt; margin: 0 0 2mm; break-after: avoid; }
+  .reportTextPage p { font-size: 10pt; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+  .reportTextPage .reportFooter { position: static; margin-top: 5mm; }
   [data-no-print], .exportHelp, .draftState, .appMessage { display: none !important; }
   .printAnalysis .section { break-inside: auto; page-break-inside: auto; }
   .sectionHead, .evidenceLabel { break-after: avoid; }

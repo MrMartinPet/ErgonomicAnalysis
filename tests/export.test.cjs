@@ -5,11 +5,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const ctx = { console, setTimeout, clearTimeout, ArrayBuffer, Buffer, Uint8Array, DataView, Blob, TextEncoder, TextDecoder, structuredClone,
-  document: { createElement: () => ({ getContext: () => ({ font: '', measureText: text => ({ width: text.length * 12 }) }) }), getElementById: () => ({}) }
+  document: { createElement: () => ({ getContext: () => ({ font: '', measureText(text) { return { width: text.length * (parseFloat(this.font) || 16) * .52 }; } }) }), getElementById: () => ({}) }
 };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const filename of ['vendor/pptxgen.bundle.js', 'ole-package.js', 'export-pptx.js']) vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), ctx);
+for (const filename of ['vendor/pptxgen.bundle.js', 'ole-package.js', 'report-model.js', 'pptx-layout.js', 'export-pptx.js', 'export-excel.js']) vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), ctx);
 
 // Independent MS-CFB reader: verify payload bytes across mini-FAT, FAT and DIFAT.
 function olePayload(input) {
@@ -66,7 +66,8 @@ function olePayload(input) {
     if (length > 10 * 1024 * 1024) assert(Buffer.from(packed).readUInt32LE(72) > 0, 'Large files exercise DIFAT');
   }
   const photo = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'posture_1.png')).toString('base64');
-  const sections = [1, 2, 3, 4, 5, 8].map(n => ({ number: n, title: 'Fråga ' + n, score: n === 1 || n === 8 ? null : 3.5, choice: 'Egen poäng', explanation: 'Eget mellanvärde', comment: `MOTIVERING_${n}\n` + (n === 5 ? 'Lång observation. '.repeat(600) + 'SLUT_MARKOR' : 'Observerat vid arbetsstationen.') }));
+  const scores = {2:6,3:3.5,4:1,5:2};
+  const sections = [1, 2, 3, 4, 5, 8].map(n => ({ number: n, title: 'Fråga ' + n, score: scores[n] ?? null, choice: 'Egen poäng', explanation: 'Eget mellanvärde', comment: `MOTIVERING_${n}\n` + (n === 5 ? 'Lång observation. '.repeat(600) + 'SLUT_MARKOR' : 'Observerat vid arbetsstationen.') }));
   const report = { metadata: ['60', 'Formning', 'Station 1'], sections, scores: ['3.5', '1', '2', '6.5', '6', '39'], range: '25 till 49 poäng', result: 'Kraftigt ökad belastningssituation.', legend: ['0 till 9', '10 till 24', '25 till 49', '50+'] };
   const evidence = { sections: Object.fromEntries([1, 2, 3, 4, 5, 8].map(n => [n, { images: [{ name: 'foto.png', caption: 'BILDTEXT_' + n, width: 500, height: 359, data: photo }] }])), attachments: [{ name: 'Arbetsinstruktion.txt', description: 'Gällande instruktion.', bytes: new TextEncoder().encode('Originaldokumentets innehåll: åäö.') }] };
   const zip = await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(report, evidence));
@@ -75,12 +76,32 @@ function olePayload(input) {
   const all = xml.join('\n');
   for (const n of [1, 2, 3, 4, 5, 8]) { assert(all.includes('MOTIVERING_' + n)); assert(all.includes('BILDTEXT_' + n)); }
   assert(all.includes('SLUT_MARKOR'), 'Long comments must never be truncated');
-  assert(xml.at(-1).includes('Sammanfattning'), 'The summary remains the final slide');
+  assert(xml[0].includes('Samlad riskklass') && xml[0].includes('Valda poäng och motiveringar'), 'The complete one-pager is the first slide');
+  assert(all.includes('typeface="Gibson"') && all.includes('typeface="Gibson Light"'), 'Dometic typefaces are used');
   assert(all.includes('<a:tbl>'), 'Scores must remain native editable tables');
   assert.equal((all.match(/<p:oleObj /g) || []).length, 1);
   assert.equal((all.match(/<p:pic>/g) || []).length, 7, 'Six separate photos and the attachment picture');
   assert.deepEqual(olePayload(await zip.file('ppt/embeddings/oleObject1.bin').async('uint8array')), Buffer.from(evidence.attachments[0].bytes));
   const withoutFiles = await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(report, { sections: {}, attachments: [] }));
   assert(!Object.keys(withoutFiles.files).some(name => /^ppt\/embeddings\/.+\.bin$/.test(name)));
-  console.log('PASS: editable slides, six photo sections, complete long comments, final summary, optional attachments and byte-perfect OLE files up to 20 MB.');
+  const shortReport = {...report,sections:sections.map(s=>({...s,comment:'Kort motivering.'}))};
+  const compact = await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(shortReport, evidence));
+  assert.equal(Object.keys(compact.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).length,3,'Six photos and a document fit into three slides including the one-pager');
+  const sevenFiles=Array.from({length:7},(_,i)=>({name:`Bilaga ${i+1}.txt`,description:'Dokumentunderlag.',bytes:new Uint8Array([i,42,255])}));
+  const several=await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(shortReport,{...evidence,attachments:sevenFiles}));
+  for(let i=0;i<sevenFiles.length;i++) assert.deepEqual(olePayload(await several.file(`ppt/embeddings/oleObject${i+1}.bin`).async('uint8array')),Buffer.from(sevenFiles[i].bytes));
+  const summaryOnly = await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(shortReport,{sections:{},attachments:[]}));
+  assert.equal(Object.keys(summaryOnly.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).length,1,'A short analysis without photos needs one slide');
+  const xlsx=await ctx.JSZip.loadAsync(await ctx.KimExcel.build(report,evidence));
+  const worksheet=await xlsx.file('xl/worksheets/sheet1.xml').async('string');
+  assert(worksheet.includes('SUM(E14:E16)*E13'),'Excel risk is a real recalculating formula');
+  assert(worksheet.includes('r="E13" s="5"><v>6</v>'),'Time score is numeric and editable');
+  const details=await xlsx.file('xl/worksheets/sheet2.xml').async('string');
+  assert(details.includes('SLUT_MARKOR'),'Excel keeps the full long comment');
+  assert.equal(Object.keys(xlsx.files).filter(n=>/^xl\/media\/image\d+\./.test(n)).length,6,'Excel has native picture objects');
+  for(const [value,level] of [[9.99,1],[10,2],[24.99,2],[25,3],[49.99,3],[50,4]]) assert.equal(ctx.KimReport.riskInfo(value).level,level);
+  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  for(const id of ['pptxBtn','excelBtn','printBtn']) assert(html.includes(`id="${id}"`));
+  for(const id of ['packageBtn','pdfBtn','csvBtn']) assert(!html.includes(`id="${id}"`));
+  console.log('PASS: one-pager first, Gibson, three-slide normal report, complete long notes, native Excel formulas/images, risk boundaries and unchanged document payloads.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

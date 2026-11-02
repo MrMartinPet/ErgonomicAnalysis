@@ -973,14 +973,13 @@
           </div>
         </section>
 
-        <div class="controls">
-          <button class="btn primary" id="pptxBtn" type="button">Exportera PowerPoint (.pptx)</button>
-          <button class="btn secondary" id="packageBtn" type="button">PowerPoint + bilagor (.zip)</button>
-          <button class="btn primary" id="pdfBtn">Exportera PDF</button>
-          <button class="btn secondary" id="csvBtn">Exportera CSV</button>
-          <button class="btn danger" id="resetBtn">Nollställ</button>
+        <div class="controls" aria-label="Export och utskrift">
+          <button class="btn primary" id="pptxBtn" type="button">Exportera PowerPoint</button>
+          <button class="btn secondary" id="excelBtn" type="button">Exportera Excel</button>
+          <button class="btn secondary" id="printBtn" type="button">Skriv ut</button>
         </div>
-        <p class="exportHelp" id="exportHelp">PowerPoint: redigera text och bilder efter export. Dokumentbilagor öppnas i PowerPoint för Windows. ZIP-exporten ger även bilagorna som separata originalfiler. PDF är för utskrift.</p>
+        <p class="exportHelp" id="exportHelp">PowerPoint med redigerbar onepager, bilder och dokumentbilagor. Excel med redigerbara poäng och kommentarer. Bilagor öppnas i PowerPoint för Windows.</p>
+        <div class="resetAction" data-no-print><button class="resetLink" id="resetBtn" type="button">Nollställ analysen</button></div>
         <p class="draftState" id="draftState" role="status" aria-live="polite">Läser sparad analys…</p>
         <p class="appMessage" id="appMessage" role="status" aria-live="polite"></p>
 
@@ -1145,156 +1144,6 @@
           $('resultText').textContent = txt;
         }
 
-        function csv(v) {
-          let s = String(v ?? '');
-          return /[;"\n]/.test(s)
-            ? `"${s.replaceAll('"', '""')}"`
-            : s;
-        }
-
-        function html(v) {
-          return String(v ?? '').replace(/[&<>"']/g, c => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-          })[c]);
-        }
-
-        function buildPrintAnalysis() {
-          const target = $('printAnalysis');
-          target.replaceChildren();
-
-          const sourceParts = document.querySelectorAll('.screen > .hero, .screen > .section');
-
-          sourceParts.forEach(sourcePart => {
-            const clone = sourcePart.cloneNode(true);
-            const sourceFields = sourcePart.querySelectorAll('input, textarea, select');
-            const cloneFields = clone.querySelectorAll('input, textarea, select');
-
-            cloneFields.forEach((field, index) => {
-              const source = sourceFields[index];
-              if (source.type === 'file') { field.remove(); return; }
-              const value = source.value.trim();
-              const display = document.createElement('div');
-              display.className = 'printFieldValue' + (value ? '' : ' empty');
-              display.textContent = value || 'Ej angivet';
-              field.replaceWith(display);
-            });
-
-            clone.removeAttribute('id');
-            clone.querySelectorAll('[data-no-print]').forEach(node => node.remove());
-            clone.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
-            target.appendChild(clone);
-          });
-        }
-
-        function exportCsv() {
-          let rows = [
-            ['Fabrik', $('factory').value],
-            ['Process', $('process').value],
-            ['Underprocess', $('underProcess').value],
-            [],
-            ['Belastningspoäng', $('loadPts').textContent],
-            ['Arbetsförhållanden', $('conditionPts').textContent],
-            ['Arbetsställning', $('posturePts').textContent],
-            ['Subtotal', $('subtotal').textContent],
-            ['Tidspoäng', $('timePts').textContent],
-            ['Riskpoäng', $('riskPts').textContent],
-            [],
-            ['Kommentarer', $('comments').value],
-            ...[1, 2, 3, 4, 5].map(n => ['Motivering fråga ' + n, $('comment-' + n)?.value || '']),
-            ...Object.entries(window.KimEvidence?.getState().sections || {}).flatMap(([n, section]) =>
-              (section.images || []).map(image => ['Bild fråga ' + n, image.name, image.caption || ''])
-            ),
-            ...(window.KimEvidence?.getState().attachments || []).map(file => ['Bilaga', file.name, file.description || ''])
-          ];
-
-          let blob = new Blob(
-            ['\uFEFF' + rows.map(r => r.map(csv).join(';')).join('\r\n')],
-            { type: 'text/csv;charset=utf-8' }
-          );
-
-          let a = document.createElement('a');
-
-          a.href = URL.createObjectURL(blob);
-          a.download = 'ergonomianalys.csv';
-          a.click();
-
-          URL.revokeObjectURL(a.href);
-          dirty = false;
-        }
-
-        function buildPrint() {
-          buildPrintAnalysis();
-
-          let meta = [
-            ['Fabrik', $('factory').value],
-            ['Process', $('process').value],
-            ['Underprocess', $('underProcess').value]
-          ];
-
-          let score = [
-            ['Belastningspoäng', $('loadPts').textContent],
-            ['Arbetsförhållanden', $('conditionPts').textContent],
-            ['Arbetsställning', $('posturePts').textContent],
-            ['Subtotal', $('subtotal').textContent],
-            ['Tidspoäng', $('timePts').textContent],
-            ['Riskpoäng', $('riskPts').textContent]
-          ];
-
-          $('printSheet').innerHTML = `
-            <div class="printTitle">
-              <span>Ergonomianalys</span>
-              <small>Dometic Production System</small>
-            </div>
-
-            <table class="printMeta">
-              <tr>
-                ${meta.map(x => `<th>${html(x[0])}</th>`).join('')}
-              </tr>
-              <tr>
-                ${meta.map(x => `<td>${html(x[1] || 'Ej angivet')}</td>`).join('')}
-              </tr>
-            </table>
-
-            <div class="printGrid">
-              <div class="printCard">
-                <h3>Nyckeltal</h3>
-                <table>
-                  ${score.map(x => `<tr><td>${html(x[0])}</td><td>${html(x[1])}</td></tr>`).join('')}
-                </table>
-              </div>
-
-              <div class="printCard">
-                <h3>Riskpoäng</h3>
-                <div class="printRisk">${$('riskPts').textContent}</div>
-              </div>
-
-              <div class="printCard">
-                <h3>Resultat</h3>
-                <div class="printResult">
-                  <b>${html($('resultRange').textContent)}</b><br>
-                  ${html($('resultText').textContent)}
-                </div>
-              </div>
-            </div>
-
-            <div class="printLegend">
-              <div class="green"><b>0 till 9</b><br>Låg belastningssituation, fysisk överbelastning är osannolik.</div>
-              <div class="yellow"><b>10 till 24</b><br>Ökad belastningssituation, fysisk överbelastning är möjlig för personer med lägre fysisk kapacitet. För denna grupp är det fördelaktigt att ändra arbetsplatsens utformning. </div>
-              <div class="orange"><b>25 till 49</b><br>Kraftigt ökad belastningssituation, fysisk överbelastning möjlig. En ny utformning av arbetsplatsen rekommenderas.</div>
-              <div class="red"><b>50+</b><br>Hög belastningssituation, fysisk överbelastning är sannolik. Arbetsplatsens utformning måste ändras.</div>
-            </div>
-
-            <div class="printComments">
-              <b>Kontroll av arbetsplatsen är nödvändig av andra skäl, skriv orsaker:</b><br>
-              ${html($('comments').value || 'Ej angivet')}
-            </div>
-          `;
-        }
-
         document.addEventListener('click', e => {
           let b = e.target.closest('.option');
 
@@ -1316,14 +1165,12 @@
           }
         });
 
-        $('pdfBtn').onclick = async () => {
+        $('printBtn').onclick = async () => {
           await window.KimEvidence?.flush();
-          buildPrint();
+          window.KimReport.buildPrint(window.KimAnalysis.report(), window.KimEvidence.getState());
           await Promise.all(Array.from($('printDocument').querySelectorAll('img')).map(img => img.decode().catch(() => {})));
           print();
         };
-
-        $('csvBtn').onclick = exportCsv;
 
         $('resetBtn').onclick = async () => {
           if (confirm('Nollställa analysen, inklusive kommentarer, bilder och bilagor?')) {
@@ -1382,11 +1229,14 @@
         render();
       })();
     </script>
-    <link rel="stylesheet" href="./evidence.css?v=20261102">
-    <script src="./evidence.js?v=20261102"></script>
+    <link rel="stylesheet" href="./evidence.css?v=20261102b">
+    <script src="./evidence.js?v=20261102b"></script>
     <script src="./vendor/jszip.min.js"></script>
     <script src="./vendor/pptxgen.bundle.js"></script>
     <script src="./ole-package.js?v=20261102"></script>
-    <script src="./export-pptx.js?v=20261102"></script>
+    <script src="./report-model.js?v=20261102b"></script>
+    <script src="./pptx-layout.js?v=20261102b"></script>
+    <script src="./export-pptx.js?v=20261102b"></script>
+    <script src="./export-excel.js?v=20261102b"></script>
   </body>
 </html>
