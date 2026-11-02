@@ -798,7 +798,7 @@
           </p>
         </div>
 
-        <section class="section" id="process">
+        <section class="section" id="processSection">
           <div class="sectionHead">
             <div class="chapter">1</div>
             <h3 class="sectionTitle">Processinformation</h3>
@@ -962,7 +962,7 @@
           </div>
         </section>
 
-        <section class="section" id="comments">
+        <section class="section" id="commentsSection">
           <div class="sectionHead">
             <div class="chapter">8</div>
             <h3 class="sectionTitle">Kontroll av arbetsplatsen är nödvändig av andra skäl, skriv orsaker</h3>
@@ -974,10 +974,15 @@
         </section>
 
         <div class="controls">
+          <button class="btn primary" id="pptxBtn" type="button">Exportera PowerPoint (.pptx)</button>
+          <button class="btn secondary" id="packageBtn" type="button">PowerPoint + bilagor (.zip)</button>
           <button class="btn primary" id="pdfBtn">Exportera PDF</button>
           <button class="btn secondary" id="csvBtn">Exportera CSV</button>
           <button class="btn danger" id="resetBtn">Nollställ</button>
         </div>
+        <p class="exportHelp" id="exportHelp">PowerPoint: redigera text och bilder efter export. Dokumentbilagor öppnas i PowerPoint för Windows. ZIP-exporten ger även bilagorna som separata originalfiler. PDF är för utskrift.</p>
+        <p class="draftState" id="draftState" role="status" aria-live="polite">Läser sparad analys…</p>
+        <p class="appMessage" id="appMessage" role="status" aria-live="polite"></p>
 
         <div class="printDocument" id="printDocument">
           <div class="printAnalysis" id="printAnalysis"></div>
@@ -1070,7 +1075,7 @@
             return `
               <button
                 type="button"
-                class="option ${key === 'posture' ? 'postureOption' : ''} ${sel[key] === x[1] ? 'active' : ''}"
+                class="option ${key === 'posture' ? 'postureOption' : ''} ${sel[key] === x[1] && $(key + 'Custom').value === '' ? 'active' : ''}"
                 data-key="${key}"
                 data-pts="${x[1]}"
               >
@@ -1170,6 +1175,7 @@
 
             cloneFields.forEach((field, index) => {
               const source = sourceFields[index];
+              if (source.type === 'file') { field.remove(); return; }
               const value = source.value.trim();
               const display = document.createElement('div');
               display.className = 'printFieldValue' + (value ? '' : ' empty');
@@ -1177,6 +1183,8 @@
               field.replaceWith(display);
             });
 
+            clone.removeAttribute('id');
+            clone.querySelectorAll('[data-no-print]').forEach(node => node.remove());
             clone.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
             target.appendChild(clone);
           });
@@ -1195,7 +1203,12 @@
             ['Tidspoäng', $('timePts').textContent],
             ['Riskpoäng', $('riskPts').textContent],
             [],
-            ['Kommentarer', $('comments').value]
+            ['Kommentarer', $('comments').value],
+            ...[1, 2, 3, 4, 5].map(n => ['Motivering fråga ' + n, $('comment-' + n)?.value || '']),
+            ...Object.entries(window.KimEvidence?.getState().sections || {}).flatMap(([n, section]) =>
+              (section.images || []).map(image => ['Bild fråga ' + n, image.name, image.caption || ''])
+            ),
+            ...(window.KimEvidence?.getState().attachments || []).map(file => ['Bilaga', file.name, file.description || ''])
           ];
 
           let blob = new Blob(
@@ -1297,19 +1310,27 @@
         document.addEventListener('input', e => {
           if (e.target.matches('input,textarea')) {
             dirty = true;
+            const key = e.target.id.replace(/Custom$/, '');
+            if (data[key] && e.target.id.endsWith('Custom')) opt(key + 'Options', key);
             calc();
           }
         });
 
-        $('pdfBtn').onclick = () => {
+        $('pdfBtn').onclick = async () => {
+          await window.KimEvidence?.flush();
           buildPrint();
+          await Promise.all(Array.from($('printDocument').querySelectorAll('img')).map(img => img.decode().catch(() => {})));
           print();
         };
 
         $('csvBtn').onclick = exportCsv;
 
-        $('resetBtn').onclick = () => {
-          if (confirm('Nollställa analysen?')) location.reload();
+        $('resetBtn').onclick = async () => {
+          if (confirm('Nollställa analysen, inklusive kommentarer, bilder och bilagor?')) {
+            await window.KimEvidence?.reset();
+            dirty = false;
+            location.reload();
+          }
         };
 
         window.addEventListener('beforeunload', e => {
@@ -1319,8 +1340,53 @@
           e.returnValue = '';
         });
 
+        window.KimAnalysis = {
+          clean() { dirty = false; },
+          snapshot() {
+            return {
+              selected: { ...sel },
+              fields: Object.fromEntries(['factory', 'process', 'underProcess', 'comments', 'timeCustom', 'weightCustom', 'conditionCustom', 'postureCustom'].map(id => [id, $(id).value]))
+            };
+          },
+          restore(saved) {
+            for (const key of Object.keys(sel)) {
+              if (data[key].some(option => option[1] === saved?.selected?.[key])) sel[key] = saved.selected[key];
+            }
+            for (const [id, value] of Object.entries(saved?.fields || {})) {
+              if (['factory', 'process', 'underProcess', 'comments', 'timeCustom', 'weightCustom', 'conditionCustom', 'postureCustom'].includes(id)) $(id).value = String(value);
+            }
+            render();
+            dirty = false;
+          },
+          report() {
+            calc();
+            const keys = { 2: 'time', 3: 'weight', 4: 'condition', 5: 'posture' };
+            return {
+              metadata: ['factory', 'process', 'underProcess'].map(id => $(id).value.trim()),
+              sections: [1, 2, 3, 4, 5, 8].map(n => {
+                const key = keys[n];
+                const section = document.querySelectorAll('.screen > .section')[n === 8 ? 7 : n - 1];
+                const custom = key && $(key + 'Custom').value !== '';
+                const choice = key && data[key].find(option => option[1] === sel[key]);
+                return { number: n, title: section.querySelector('h3').textContent, score: key ? safe(val(key)) : null, choice: key ? (custom ? 'Egen poäng' : choice[0]) : '', explanation: key ? (custom ? 'Eget mellanvärde' : desc(key, sel[key])) : '', comment: n === 8 ? $('comments').value : ($('comment-' + n)?.value || ''), custom };
+              }),
+              scores: ['loadPts', 'conditionPts', 'posturePts', 'subtotal', 'timePts', 'riskPts'].map(id => $(id).textContent),
+              range: $('resultRange').textContent,
+              result: $('resultText').textContent,
+              riskColor: getComputedStyle($('resultBox')).backgroundColor,
+              legend: Array.from(document.querySelectorAll('#result .legend > div')).map(node => node.innerText)
+            };
+          }
+        };
+        ['timeCustom', 'weightCustom', 'conditionCustom', 'postureCustom'].forEach(id => $(id).step = 'any');
         render();
       })();
     </script>
+    <link rel="stylesheet" href="./evidence.css?v=20261102">
+    <script src="./evidence.js?v=20261102"></script>
+    <script src="./vendor/jszip.min.js"></script>
+    <script src="./vendor/pptxgen.bundle.js"></script>
+    <script src="./ole-package.js?v=20261102"></script>
+    <script src="./export-pptx.js?v=20261102"></script>
   </body>
 </html>

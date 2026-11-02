@@ -1,0 +1,52 @@
+.evidence { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--l); }
+.evidenceLabel { display: block; font-size: .88rem; font-weight: 700; margin: 0 0 6px; }
+.evidence textarea { min-height: 80px; }
+.evidenceTools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.uploadLabel { display: inline-flex; align-items: center; cursor: pointer; }
+.uploadInput { position: absolute; width: 1px; height: 1px; opacity: 0; padding: 0; }
+.uploadLabel:focus-within { outline: 3px solid var(--b); outline-offset: 3px; }
+.evidenceHint { color: var(--m); font-size: .8rem; line-height: 1.4; margin: 5px 0; }
+.imageGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-top: 12px; }
+.evidenceImage { margin: 0; background: white; border: 1px solid var(--l); border-radius: 12px; overflow: hidden; min-width: 0; }
+.evidenceImage > img { display: block; width: 100%; height: 170px; object-fit: contain; background: #f2f5f7; }
+.evidenceImage figcaption { padding: 10px; }
+.imageName { display: block; color: var(--m); font-size: .75rem; overflow-wrap: anywhere; margin-bottom: 5px; }
+.imageActions { display: flex; gap: 8px; margin-top: 7px; }
+.imageActions .btn, .attachmentActions .btn { min-height: 36px; font-size: .8rem; padding: 7px 11px; }
+.attachmentArea { margin-top: 20px; border-top: 1px solid var(--l); padding-top: 14px; }
+.attachmentArea h4 { margin: 0 0 6px; font-size: 1rem; }
+.attachmentList { display: grid; gap: 10px; margin-top: 12px; }
+.attachmentItem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; background: white; border: 1px solid var(--l); border-radius: 12px; padding: 12px; align-items: center; }
+.attachmentName { font-weight: 700; overflow-wrap: anywhere; }
+.attachmentSize { color: var(--m); font-size: .8rem; margin: 4px 0 7px; }
+.attachmentActions { display: flex; flex-wrap: wrap; gap: 6px; }
+.exportHelp, .draftState, .appMessage { padding: 0 16px; font-size: .82rem; line-height: 1.45; color: var(--m); }
+.appMessage:empty { display: none; }
+.downloadLinks { padding: 0 16px 16px; }
+.downloadLink { display: inline-block; text-decoration: none; max-width: 100%; overflow-wrap: anywhere; }
+.appMessage.error { color: #a31d28; font-weight: 700; }
+.btn:disabled, .uploadInput:disabled + span { opacity: .55; cursor: wait; }
+@media (max-width: 800px) {
+  .evidenceLabel { font-size: .8rem; }
+  .evidenceTools .btn { font-size: .82rem; min-height: 42px; padding: 10px 12px; }
+  .imageGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .evidenceImage > img { height: 130px; }
+  .evidenceImage figcaption { padding: 7px; }
+  .attachmentItem { grid-template-columns: 1fr; }
+  .controls { grid-template-columns: 1fr 1fr; }
+  #pptxBtn { grid-column: 1 / -1; min-height: 44px; font-size: .9rem; }
+  .controls .btn { min-height: 40px; }
+  .imageActions .btn { min-height: 40px; }
+}
+@media print {
+  [data-no-print], .exportHelp, .draftState, .appMessage { display: none !important; }
+  .printAnalysis .section { break-inside: auto; page-break-inside: auto; }
+  .sectionHead, .evidenceLabel { break-after: avoid; }
+  .imageGrid { display: block; }
+  .evidenceImage { display: inline-block; vertical-align: top; width: 47%; margin: 0 2% 8px 0; break-inside: avoid; page-break-inside: avoid; }
+  .evidenceImage > img { height: 55mm; object-fit: contain; }
+  .evidenceImage figcaption { padding: 5px; }
+  .evidenceImage .printFieldValue { min-height: 0; padding: 4px; font-size: 11px; border: 0; }
+  .attachmentItem { break-inside: avoid; }
+  .evidence { break-inside: auto; }
+}
