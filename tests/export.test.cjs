@@ -104,10 +104,12 @@ function olePayload(input) {
   const slides = Object.keys(zip.files).filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)).sort((a, b) => Number(a.match(/(\d+)\.xml/)[1]) - Number(b.match(/(\d+)\.xml/)[1]));
   const xml = await Promise.all(slides.map(name => zip.file(name).async('string')));
   const all = xml.join('\n');
-  for (const n of [1, 2, 3, 4, 5, 8]) { assert(all.includes('MOTIVERING_' + n)); assert(all.includes('BILDTEXT_' + n)); }
+  for (const n of [1, 2, 3, 4, 5, 8]) {
+    assert(xml.some(slide => slide.includes(`Fråga ${n} – foto.png`) && slide.includes('MOTIVERING_' + n) && slide.includes('BILDTEXT_' + n)), `Fråga ${n}: foto, motivering och bildtext ska ligga på samma sida`);
+  }
   assert(all.includes('SLUT_MARKOR'), 'Long comments must never be truncated');
-  assert(xml.at(-1).includes('Sammanfattning – Ergonomianalys KIM 1'), 'The original summary is the final slide');
-  assert(all.includes('<a:tbl>'), 'Scores must remain native editable tables');
+  assert(xml[0].includes('Riskklass 3') && xml[0].includes('Resultatförklaring') && report.legend.every(range => xml[0].includes(range)), 'The risk scale belongs on the result page');
+  assert(xml[0].includes('<a:t>Riskpoäng</a:t>') && xml[0].includes('<a:t>39</a:t>'), 'Scores must remain editable text');
   assert.equal((all.match(/<p:oleObj /g) || []).length, 1);
   assert.equal((all.match(/<p:pic>/g) || []).length,7,'Six separate photos and the attachment picture');
   assert.deepEqual(olePayload(await zip.file('ppt/embeddings/oleObject1.bin').async('uint8array')), Buffer.from(evidence.attachments[0].bytes));
@@ -115,6 +117,9 @@ function olePayload(input) {
   await validatePowerPointPackage(withoutFiles);
   assert(!Object.keys(withoutFiles.files).some(name => /^ppt\/embeddings\/.+\.bin$/.test(name)));
   const shortReport = {...report,sections:sections.map(s=>({...s,comment:'Kort motivering.'}))};
+  const compact = await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(shortReport, evidence));
+  await validatePowerPointPackage(compact);
+  assert.equal(Object.keys(compact.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).length,4,'Six photos and one document fit into four pages');
   const sevenFiles=Array.from({length:7},(_,i)=>({name:`Bilaga ${i+1}.txt`,description:'Dokumentunderlag.',bytes:new Uint8Array([i,42,255])}));
   const several=await ctx.JSZip.loadAsync(await ctx.KimPowerPoint.build(shortReport,{...evidence,attachments:sevenFiles}));
   await validatePowerPointPackage(several);
@@ -130,5 +135,5 @@ function olePayload(input) {
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   for(const id of ['pptxBtn','excelBtn','printBtn']) assert(html.includes(`id="${id}"`));
   for(const id of ['packageBtn','pdfBtn','csvBtn']) assert(!html.includes(`id="${id}"`));
-  console.log('PASS: original PowerPoint summary, separate photos, complete long notes, Excel formulas/images, risk boundaries and intact document payloads.');
+  console.log('PASS: compact result page, photos beside their questions, complete long notes, Excel formulas/images, risk boundaries and intact document payloads.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

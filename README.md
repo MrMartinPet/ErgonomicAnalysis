@@ -6,7 +6,7 @@ Svensk KIM 1-app med Dometics befintliga bedömningsskalor och beräkning.
 - Flera bilder med bildtext på fråga 1–5 och punkt 8.
 - Dokumentbilagor under punkt 8.
 - Tre huvudval: **Exportera PowerPoint**, **Exportera Excel** och **Skriv ut**.
-- PowerPoint använder det ursprungliga A4-upplägget med frågorna och bilagorna på separata bilder och en sammanfattning sist. Text, tabeller och foton är redigerbara objekt.
+- PowerPoint börjar med en kompakt resultatsida med poäng, riskklass och resultatförklaring. Frågor, motiveringar och tillhörande foton hålls ihop på underlagssidorna. Vid platsbrist fortsätter frågan på nästa sida. Text, poäng och foton är redigerbara objekt.
 - Dokumenten bäddas in som OLE Package-objekt. Öppna dem i PowerPoint för Windows.
 - Excel-exporten är en riktig `.xlsx` med numeriska, redigerbara poäng och formler för riskpoäng/riskklass. Bilder och fullständiga längre kommentarer finns i underlaget. Dokumentbilagorna listas i Excel och bäddas in i PowerPoint.
 - Skriv ut ger en onepager följd av bild- och kommentarsunderlag. Webbläsarens utskrift kan också sparas som PDF.

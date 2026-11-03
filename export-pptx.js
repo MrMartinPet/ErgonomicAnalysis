@@ -1,45 +1,13 @@
 /* Editable, offline PowerPoint export for KIM 1. */
 (() => {
   'use strict';
+  const R = window.KimReport;
   const $ = id => document.getElementById(id);
   const WIDTH = 11.6929, HEIGHT = 8.2677;
   const BLUE = '156082', INK = '172333', GREY = '637081';
   const XML = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
   const safeName = text => String(text || 'analys').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(0, 160) || 'analys';
   const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
-
-  function wrapText(text, width, fontSize) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    context.font = `${fontSize * 96 / 72}px Arial`;
-    const maxWidth = width * 96 * .92;
-    const lines = [];
-    for (const paragraph of String(text).replace(/\r/g, '').split('\n')) {
-      if (!paragraph) { lines.push(''); continue; }
-      let line = '';
-      for (const word of paragraph.split(/\s+/)) {
-        if (line && context.measureText(line + ' ' + word).width > maxWidth) { lines.push(line); line = ''; }
-        if (context.measureText(word).width <= maxWidth) { line += (line ? ' ' : '') + word; continue; }
-        for (const char of word) {
-          if (line && context.measureText(line + char).width > maxWidth) { lines.push(line); line = ''; }
-          line += char;
-        }
-      }
-      lines.push(line);
-    }
-    return lines;
-  }
-
-  function addTextPages(pptx, title, body, base) {
-    const lines = wrapText(body, WIDTH - 1.2, 18);
-    let index = 0, page = 0;
-    do {
-      const slide = base(title + (page ? ' (fortsättning)' : ''));
-      const part = lines.slice(index, index + 18).join('\n');
-      slide.addText(part, { x: .6, y: 1.4, w: WIDTH - 1.2, h: 5.95, fontFace: 'Arial', fontSize: 18, color: INK, margin: 0, breakLine: false, valign: 'top', lineSpacingMultiple: 1.13, paraSpaceAfterPt: 3, objectName: 'Redigerbar bedömningstext' });
-      index += 18; page++;
-    } while (index < lines.length);
-  }
 
   async function embedDocuments(buffer, objects) {
     if (!objects.length) return buffer;
@@ -81,74 +49,147 @@
     pptx.title = ['Ergonomianalys KIM 1', ...report.metadata.filter(Boolean)].join(' – ');
     pptx.company = 'Dometic';
     pptx.lang = 'sv-SE';
-    pptx.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial', lang: 'sv-SE' };
-    let slideCount = 0;
+    pptx.theme = { headFontFace: R.HEADING, bodyFontFace: R.FONT, lang: 'sv-SE' };
+
+    const margin = .5, width = WIDTH - 2 * margin, bottom = 7.69;
     const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' });
+    const objects = [];
+    let slideCount = 0;
+
+    function text(slide, value, x, y, w, h, style = {}) {
+      const options = { fontSize: 11, color: INK, fontFace: R.FONT, margin: 0, valign: 'top', ...style };
+      slide.addText(String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ''), {
+        x, y, w, h, lineSpacing: options.fontSize * 1.18, ...options
+      });
+    }
+
     function base(title) {
       const slide = pptx.addSlide();
       slide.background = { color: 'FFFFFF' };
-      slide.addText(title, { x: .6, y: .35, w: WIDTH - 1.2, h: .85, fontFace: 'Arial', fontSize: title.length > 65 ? 25 : 30, bold: true, color: BLUE, margin: 0, valign: 'mid', objectName: 'Redigerbar rubrik' });
-      slide.addText(`Dometic   KIM 1   ${date}`, { x: .6, y: HEIGHT - .46, w: 9.4, h: .2, fontFace: 'Arial', fontSize: 10, color: GREY, margin: 0 });
-      slide.addText(String(++slideCount), { x: WIDTH - 1.15, y: HEIGHT - .46, w: .5, h: .2, fontFace: 'Arial', fontSize: 10, color: GREY, align: 'right', margin: 0 });
+      text(slide, title, margin, .37, width, .42, { fontFace: R.HEADING, fontSize: 24 });
+      text(slide, `DOMETIC  /  KIM 1  /  ${date}`, margin, 7.89, 8, .2, { fontSize: 8.5, color: GREY });
+      text(slide, ++slideCount, WIDTH - 1, 7.89, .5, .2, { fontSize: 8.5, color: GREY, align: 'right' });
       return slide;
     }
-    const scoreRows = () => ['Belastningspoäng', 'Arbetsförhållanden', 'Arbetsställning', 'Summa belastning', 'Tidspoäng', 'Riskpoäng'].map((label, i) => [label, report.scores[i]]);
-    function calculation(title, summary = false) {
-      const slide = base(title);
-      slide.addTable(scoreRows(), { x: .6, y: 1.5, w: 5, colW: [3.8, 1.2], rowH: .55, fontFace: 'Arial', fontSize: 18, color: INK, border: { color: 'D9E1EA', pt: .7 }, margin: .12, fill: 'FFFFFF', autoPage: false });
-      slide.addText(report.range, { x: 6, y: 1.5, w: 4.9, h: .55, fontSize: 23, bold: true, color: BLUE, margin: 0 });
-      slide.addText(report.result, { x: 6, y: 2.3, w: 4.9, h: 2.8, fontSize: 18, color: INK, margin: 0, valign: 'top', breakLine: false });
-      slide.addText(`(${report.scores[0]} + ${report.scores[1]} + ${report.scores[2]}) × ${report.scores[4]} = ${report.scores[5]}`, { x: .6, y: 5.5, w: 10.4, h: .6, fontSize: 24, bold: true, color: BLUE, margin: 0 });
-      if (summary) {
-        slide.addText(['Fabrik', 'Process', 'Underprocess'].map((label, i) => `${label}: ${report.metadata[i] || 'Ej angivet'}`).join('\n'), { x: .6, y: 6.45, w: 10.4, h: .95, fontSize: 14, color: GREY, margin: 0, valign: 'top' });
-      }
-    }
-    function sectionPages(section) {
-      const n = section.number;
-      const title = n === 8 ? '8. Övriga kommentarer och observationer' : `${n}. ${section.title}`;
-      const parts = [];
-      if (n === 1) parts.push(['Fabrik', 'Process', 'Underprocess'].map((label, i) => `${label}: ${report.metadata[i] || 'Ej angivet'}`).join('\n'));
-      if (section.score !== null) parts.push(`Vald nivå: ${section.choice}\nPoäng: ${section.score}\n${section.explanation}`);
-      parts.push(`${n === 8 ? section.title : 'Motivering / kommentar'}\n${section.comment.trim() || 'Ej angivet'}`);
-      addTextPages(pptx, title, parts.join('\n\n'), base);
-      const images = evidence.sections[n]?.images || [];
-      for (let at = 0; at < images.length; at += 2) {
-        const slide = base(`${n}. Bilder och observationer`);
-        images.slice(at, at + 2).forEach((image, column) => {
-          const x = .6 + column * 5.45;
-          const w = 5.04, h = 4.4, y = 1.4;
-          // Separate native picture objects retain their original proportions.
-          const ratio = image.width / image.height;
-          let iw = w, ih = w / ratio;
-          if (ih > h) { ih = h; iw = h * ratio; }
-          slide.addImage({ data: image.data, x: x + (w - iw) / 2, y: y + (h - ih) / 2, w: iw, h: ih, altText: image.caption || image.name, objectName: `Fråga ${n} – ${image.name}` });
-          const captionLines = wrapText(image.caption || image.name, w, 16);
-          slide.addText(captionLines.slice(0, 4).join('\n'), { x, y: 5.98, w, h: 1.12, fontSize: 16, color: INK, margin: 0, valign: 'top', objectName: 'Redigerbar bildtext' });
-          // Long captions continue on their own slide instead of being truncated.
-        });
-        for (const image of images.slice(at, at + 2)) {
-          if (wrapText(image.caption || image.name, 5.04, 16).length > 4) addTextPages(pptx, `${n}. Bildtext – ${image.name}`, image.caption || image.name, base);
-        }
-      }
-    }
-    report.sections.filter(section => section.number <= 5).forEach(sectionPages);
-    calculation('6. Ergonomiberäkning');
-    addTextPages(pptx, '7. Resultatförklaring', report.legend.join('\n\n'), base);
-    sectionPages(report.sections.find(section => section.number === 8));
-    const objects = [];
-    evidence.attachments.forEach((file, i) => {
-      const slide = base(`Dokumentbilaga ${i + 1}`);
-      slide.addText(file.name, { x: .6, y: 1.55, w: WIDTH - 1.2, h: .8, fontSize: 23, bold: true, color: INK, margin: 0, valign: 'top', objectName: 'Bilagans filnamn' });
-      const x = .6, y = 2.8, w = 4.7, h = .7;
-      slide.addText('Öppna bilagan', { x, y, w, h, fontSize: 24, bold: true, underline: { color: BLUE }, color: BLUE, margin: 0 });
-      slide.addImage({ data: BLANK_PNG, x, y, w, h, objectName: `KIM_ATTACHMENT_${i}`, altText: `Öppna ${file.name}` });
-      slide.addText('Dubbelklicka på Öppna bilagan i PowerPoint för Windows.\nDokumentet finns inbäddat i denna presentation.', { x: .6, y: 3.85, w: 10.4, h: 1, fontSize: 17, color: GREY, margin: 0, valign: 'top' });
-      const lines = wrapText(file.description || '', 10.4, 18);
-      slide.addText(lines.slice(0, 5).join('\n'), { x: .6, y: 5.2, w: 10.4, h: 1.6, fontSize: 18, color: INK, margin: 0, valign: 'top' });
-      objects.push({ slideNumber: slideCount, file, x, y, w, h });
-      if (lines.length > 5) addTextPages(pptx, `Bilaga ${i + 1} – beskrivning`, file.description, base);
+
+    const summary = base('Ergonomianalys KIM 1');
+    const metadataLabels = ['Fabrik', 'Process', 'Underprocess'];
+    const metadataWidths = [2, 4.1, 4.1];
+    const metadataX = [margin, 2.65, 6.95];
+    const longMetadata = [];
+    metadataLabels.forEach((label, i) => {
+      const value = report.metadata[i];
+      const shown = R.preview(value, metadataWidths[i], 12, 2);
+      text(summary, label.toUpperCase(), metadataX[i], 1.0, metadataWidths[i], .17, { fontSize: 9, color: GREY, bold: true });
+      text(summary, shown.text, metadataX[i], 1.19, metadataWidths[i], .44, { fontSize: 12 });
+      if (shown.cut) longMetadata.push(`${label}: ${value}`);
     });
-    calculation('Sammanfattning – Ergonomianalys KIM 1', true);
+
+    const risk = R.riskInfo(report.scores[5]);
+    text(summary, R.format(report.scores[5]), margin, 1.76, 1.65, 1.22, {
+      fontSize: 37, fontFace: R.HEADING, align: 'center', valign: 'mid', fill: { color: risk.fill }
+    });
+    text(summary, `Riskklass ${risk.level} · ${risk.label}`, 2.39, 1.8, 8.55, .35, { fontSize: 19, fontFace: R.HEADING });
+    text(summary, R.wrap(report.result || risk.action, 8.55, 11).join('\n'), 2.39, 2.22, 8.55, .77);
+    text(summary, `Riskpoäng = (${report.scores.slice(0, 3).map(R.format).join(' + ')}) × ${R.format(report.scores[4])} = ${R.format(report.scores[5])}`,
+      margin, 3.12, width, .25, { fontSize: 11, bold: true });
+
+    text(summary, 'Ergonomiberäkning', margin, 3.67, 4.5, .25, { fontSize: 14, bold: true });
+    const scoreRows = ['Belastningspoäng', 'Arbetsförhållanden', 'Arbetsställning', 'Summa belastning', 'Tidspoäng', 'Riskpoäng']
+      .map((label, i) => [label, R.format(report.scores[i])]);
+    // Editable text rows avoid the duplicate drawing IDs emitted by addTable.
+    scoreRows.forEach(([label, value], i) => {
+      const y = 4.05 + i * .39, total = i === scoreRows.length - 1;
+      const fill = total ? 'EAF5F3' : i % 2 === 0 ? 'F3F3F2' : 'FFFFFF';
+      text(summary, ' ', margin, y, 4.5, .37, { fill: { color: fill } });
+      text(summary, label, margin + .11, y, 3.3, .37, { bold: total, valign: 'mid' });
+      text(summary, value, 3.96, y, .91, .37, {
+        fontSize: 11, bold: true, align: 'right', valign: 'mid'
+      });
+    });
+
+    text(summary, 'Resultatförklaring', 5.32, 3.67, 5.87, .25, { fontSize: 14, bold: true });
+    let legendY = 4.05;
+    report.legend.forEach((entry, i) => {
+      const [range, ...description] = entry.trim().split('\n');
+      const lines = R.wrap(description.join(' ').trim(), 5.55, 9.5).filter(Boolean);
+      const height = Math.max(.37, .29 + lines.length * .16);
+      const fill = i === risk.level - 1 ? risk.fill : 'F3F3F2';
+      text(summary, ' ', 5.32, legendY, 5.87, height, { fill: { color: fill } });
+      text(summary, range, 5.43, legendY + .045, 5.55, .19, { fontSize: 10, bold: true });
+      if (lines.length) text(summary, lines.join('\n'), 5.43, legendY + .24, 5.55, height - .22, { fontSize: 9.5 });
+      legendY += height + .06;
+    });
+
+    let slide, y = bottom;
+    function reserve(height, title) {
+      if (y + height > bottom) {
+        slide = base(title);
+        y = .98;
+      }
+      const top = y;
+      y += height + .13;
+      return top;
+    }
+
+    for (const section of report.sections) {
+      const number = section.number;
+      const title = `${number}. ${R.titles[number] || section.title}`;
+      const photos = evidence.sections[number]?.images || [];
+      const photoWidth = 1.87, photoHeight = 1.14, photoGap = .13, photoX = 5.32;
+      const captions = photos.map((photo, i) => {
+        const value = photo.caption || photo.name;
+        const shown = R.preview(value, photoWidth, 9, 2);
+        return shown.cut ? {
+          text: R.preview(`Bild ${i + 1} · ${value}`, photoWidth, 9, 2).text,
+          full: `Bild ${i + 1}: ${value}`
+        } : { text: shown.text, full: '' };
+      });
+      const description = section.explanation && section.explanation !== section.choice ? section.explanation : '';
+      const choice = section.score == null ? '' : `${R.format(section.score)} p · ${section.choice}`;
+      const details = [number === 1 ? longMetadata.join('\n') : '', choice, description,
+        section.comment.trim(), ...captions.map(caption => caption.full)].filter(Boolean).join('\n');
+      const lines = R.wrap(details || (photos.length ? '' : 'Ingen kommentar angiven.'), photos.length ? 4.55 : width - .3, 11);
+      let nextLine = 0, nextPhoto = 0, continued = false;
+      do {
+        const photoRow = photos.slice(nextPhoto, nextPhoto + 3);
+        const chunk = lines.slice(nextLine, nextLine + (photoRow.length ? 9 : 29));
+        const height = Math.max(.54 + chunk.length * .187, photoRow.length ? 2.03 : 0);
+        const top = reserve(height, 'Bedömning och bildunderlag');
+        text(slide, title + (continued ? ' · fortsättning' : ''), margin, top, width, .32, {
+          fontSize: 13, bold: true, fill: { color: 'EAF5F3' }, margin: [3, 7, 0, 7]
+        });
+        if (chunk.length) text(slide, chunk.join('\n'), margin + .10, top + .44,
+          photos.length ? 4.55 : width - .3, height - .42);
+        photoRow.forEach((photo, i) => {
+          const x = photoX + (3 - photoRow.length) * (photoWidth + photoGap) / 2 + i * (photoWidth + photoGap);
+          const scale = Math.min(photoWidth / photo.width, photoHeight / photo.height);
+          const w = photo.width * scale, h = photo.height * scale;
+          slide.addImage({ data: photo.data, x: x + (photoWidth - w) / 2, y: top + .44 + (photoHeight - h) / 2,
+            w, h, altText: photo.caption || photo.name, objectName: `Fråga ${number} – ${photo.name}` });
+          const caption = captions[nextPhoto + i];
+          text(slide, caption.text, x, top + 1.63, photoWidth, .38, { fontSize: 9, color: GREY });
+        });
+        nextLine += chunk.length;
+        nextPhoto += photoRow.length;
+        continued = true;
+      } while (nextLine < lines.length || nextPhoto < photos.length);
+    }
+
+    y = bottom;
+    evidence.attachments.forEach((file, i) => {
+      const body = R.wrap(`${file.name}${file.description ? '\n' + file.description : ''}`, width - .25, 11);
+      for (let offset = 0; offset < body.length; offset += 27) {
+        const lines = body.slice(offset, offset + 27);
+        const top = reserve(.61 + lines.length * .19, 'Dokumentbilagor');
+        text(slide, lines.join('\n'), margin, top, width, lines.length * .19 + .1);
+        if (offset) continue;
+        const x = margin, y = top + lines.length * .19 + .07, w = 4.7, h = .33;
+        text(slide, 'Öppna bilagan i PowerPoint för Windows', x, y, w, h, { fontSize: 10, bold: true, color: BLUE });
+        slide.addImage({ data: BLANK_PNG, x, y, w, h, objectName: `KIM_ATTACHMENT_${i}`, altText: `Öppna ${file.name}` });
+        objects.push({ slideNumber: slideCount, file, x, y, w, h });
+      }
+    });
     return embedDocuments(await pptx.write({ outputType: 'arraybuffer' }), objects);
   }
 
@@ -165,7 +206,7 @@
       const buffer = await build(report, evidence);
       const filename = safeName(['KIM1', ...report.metadata.filter(Boolean)].join('_'));
       window.KimEvidence.download(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }), filename + '.pptx');
-      window.KimEvidence.message('PowerPoint är klar. Text, tabeller och bilder är redigerbara.');
+      window.KimEvidence.message('PowerPoint är klar. Text, poäng och bilder är redigerbara.');
     } catch (error) {
       console.error('PowerPoint export failed', error);
       window.KimEvidence.message('Exporten misslyckades: ' + (error.message || 'försök igen.'), true);
