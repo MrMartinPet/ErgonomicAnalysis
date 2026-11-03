@@ -1,76 +1,49 @@
-/* PowerPoint export: editable Dometic report with embedded document packages. */
+/* Editable, offline PowerPoint export for KIM 1. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const R = window.KimReport;
-  const XML = R.xml;
-  function attribute(tag, name) {
-    const match = new RegExp('\\b' + name + '="([^"]*)"').exec(tag);
-    return match ? match[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : null;
+  const WIDTH = 11.6929, HEIGHT = 8.2677;
+  const BLUE = '156082', INK = '172333', GREY = '637081';
+  const XML = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
+  const safeName = text => String(text || 'analys').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(0, 160) || 'analys';
+  const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
+
+  function wrapText(text, width, fontSize) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    context.font = `${fontSize * 96 / 72}px Arial`;
+    const maxWidth = width * 96 * .92;
+    const lines = [];
+    for (const paragraph of String(text).replace(/\r/g, '').split('\n')) {
+      if (!paragraph) { lines.push(''); continue; }
+      let line = '';
+      for (const word of paragraph.split(/\s+/)) {
+        if (line && context.measureText(line + ' ' + word).width > maxWidth) { lines.push(line); line = ''; }
+        if (context.measureText(word).width <= maxWidth) { line += (line ? ' ' : '') + word; continue; }
+        for (const char of word) {
+          if (line && context.measureText(line + char).width > maxWidth) { lines.push(line); line = ''; }
+          line += char;
+        }
+      }
+      lines.push(line);
+    }
+    return lines;
   }
 
-  async function finalizePackage(zip) {
-    // PptxGenJS can give a table the same ID as an earlier title when a logo is
-    // present. Drawing IDs must be unique within each slide/master/layout part.
-    const drawingParts = Object.keys(zip.files).filter(name => /^ppt\/(slides|slideMasters|slideLayouts)\/[^/]+\.xml$/.test(name));
-    for (const name of drawingParts) {
-      const xml = await zip.file(name).async('string');
-      for (const match of xml.matchAll(/<a:(?:tcPr|bodyPr)\b[^>]*\banchor="([^"]+)"/g)) {
-        if (!['t', 'ctr', 'b', 'just', 'dist'].includes(match[1])) {
-          throw new Error('PowerPoint-filen innehåller en ogiltig textformatering. Uppdatera sidan och försök igen.');
-        }
-      }
-      const ids = Array.from(xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g), match => Number(match[1]));
-      let next = Math.max(1, ...ids) + 1;
-      const used = new Set();
-      const normalized = xml.replace(/<p:cNvPr\b[^>]*>/g, tag => {
-        const id = attribute(tag, 'id');
-        if (!used.has(id)) { used.add(id); return tag; }
-        const replacement = String(next++);
-        used.add(replacement);
-        return tag.replace(/\bid="\d+"/, `id="${replacement}"`);
-      });
-      zip.file(name, normalized);
-    }
-
-    // PptxGenJS places the notes master after the slide list. ECMA-376's
-    // CT_Presentation sequence requires it before that list.
-    let presentation = await zip.file('ppt/presentation.xml').async('string');
-    const notesMaster = presentation.match(/<p:notesMasterIdLst>[^]*?<\/p:notesMasterIdLst>/);
-    if (notesMaster && presentation.indexOf(notesMaster[0]) > presentation.indexOf('<p:sldIdLst>')) {
-      presentation = presentation.replace(notesMaster[0], '').replace('<p:sldIdLst>', notesMaster[0] + '<p:sldIdLst>');
-      zip.file('ppt/presentation.xml', presentation);
-    }
-
-    // The writer also declares extra, unused masters for multi-slide reports.
-    // Remove declarations for parts it did not create; referenced parts are
-    // checked below, so a genuinely missing dependency cannot be hidden.
-    const types = await zip.file('[Content_Types].xml').async('string');
-    zip.file('[Content_Types].xml', types.replace(/<Override\b[^>]*\/>/g, tag => {
-      const part = attribute(tag, 'PartName');
-      return part && zip.file(part.replace(/^\//, '')) ? tag : '';
-    }));
-    for (const name of Object.keys(zip.files).filter(path => path.endsWith('.rels'))) {
-      const base = name === '_rels/.rels' ? '' : name.slice(0, name.lastIndexOf('/_rels/'));
-      const xml = await zip.file(name).async('string');
-      for (const match of xml.matchAll(/<Relationship\b[^>]*\/>/g)) {
-        if (attribute(match[0], 'TargetMode') === 'External') continue;
-        const target = attribute(match[0], 'Target');
-        if (!target) throw new Error('PowerPoint-filens struktur kunde inte kontrolleras.');
-        const segments = [];
-        const absolute = target.startsWith('/') ? target : base + '/' + target;
-        for (const segment of absolute.split('/')) {
-          if (segment === '..') segments.pop();
-          else if (segment && segment !== '.') segments.push(segment);
-        }
-        if (!zip.file(segments.join('/'))) throw new Error('PowerPoint-filen saknar en nödvändig del. Försök exportera igen.');
-      }
-    }
-    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+  function addTextPages(pptx, title, body, base) {
+    const lines = wrapText(body, WIDTH - 1.2, 18);
+    let index = 0, page = 0;
+    do {
+      const slide = base(title + (page ? ' (fortsättning)' : ''));
+      const part = lines.slice(index, index + 18).join('\n');
+      slide.addText(part, { x: .6, y: 1.4, w: WIDTH - 1.2, h: 5.95, fontFace: 'Arial', fontSize: 18, color: INK, margin: 0, breakLine: false, valign: 'top', lineSpacingMultiple: 1.13, paraSpaceAfterPt: 3, objectName: 'Redigerbar bedömningstext' });
+      index += 18; page++;
+    } while (index < lines.length);
   }
 
   async function embedDocuments(buffer, objects) {
-    const zip = await JSZip.loadAsync(buffer, { checkCRC32: true });
+    if (!objects.length) return buffer;
+    const zip = await JSZip.loadAsync(buffer);
     let contentTypes = await zip.file('[Content_Types].xml').async('string');
     objects.forEach((object, i) => {
       contentTypes = contentTypes.replace('</Types>', `<Override PartName="/ppt/embeddings/oleObject${i + 1}.bin" ContentType="application/vnd.openxmlformats-officedocument.oleObject"/></Types>`);
@@ -96,11 +69,89 @@
       zip.file(relPath, rels);
       zip.file(`ppt/embeddings/oleObject${i + 1}.bin`, KimOlePackage(file.name, file.bytes));
     }
-    return finalizePackage(zip);
+    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
   }
 
+  async function build(report, evidence) {
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'A4_LIGGANDE', width: WIDTH, height: HEIGHT });
+    pptx.layout = 'A4_LIGGANDE';
+    pptx.author = 'Dometic';
+    pptx.subject = 'Ergonomianalys KIM 1 med motiveringar, bilder och bilagor';
+    pptx.title = ['Ergonomianalys KIM 1', ...report.metadata.filter(Boolean)].join(' – ');
+    pptx.company = 'Dometic';
+    pptx.lang = 'sv-SE';
+    pptx.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial', lang: 'sv-SE' };
+    let slideCount = 0;
+    const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' });
+    function base(title) {
+      const slide = pptx.addSlide();
+      slide.background = { color: 'FFFFFF' };
+      slide.addText(title, { x: .6, y: .35, w: WIDTH - 1.2, h: .85, fontFace: 'Arial', fontSize: title.length > 65 ? 25 : 30, bold: true, color: BLUE, margin: 0, valign: 'mid', objectName: 'Redigerbar rubrik' });
+      slide.addText(`Dometic   KIM 1   ${date}`, { x: .6, y: HEIGHT - .46, w: 9.4, h: .2, fontFace: 'Arial', fontSize: 10, color: GREY, margin: 0 });
+      slide.addText(String(++slideCount), { x: WIDTH - 1.15, y: HEIGHT - .46, w: .5, h: .2, fontFace: 'Arial', fontSize: 10, color: GREY, align: 'right', margin: 0 });
+      return slide;
+    }
+    const scoreRows = () => ['Belastningspoäng', 'Arbetsförhållanden', 'Arbetsställning', 'Summa belastning', 'Tidspoäng', 'Riskpoäng'].map((label, i) => [label, report.scores[i]]);
+    function calculation(title, summary = false) {
+      const slide = base(title);
+      slide.addTable(scoreRows(), { x: .6, y: 1.5, w: 5, colW: [3.8, 1.2], rowH: .55, fontFace: 'Arial', fontSize: 18, color: INK, border: { color: 'D9E1EA', pt: .7 }, margin: .12, fill: 'FFFFFF', autoPage: false });
+      slide.addText(report.range, { x: 6, y: 1.5, w: 4.9, h: .55, fontSize: 23, bold: true, color: BLUE, margin: 0 });
+      slide.addText(report.result, { x: 6, y: 2.3, w: 4.9, h: 2.8, fontSize: 18, color: INK, margin: 0, valign: 'top', breakLine: false });
+      slide.addText(`(${report.scores[0]} + ${report.scores[1]} + ${report.scores[2]}) × ${report.scores[4]} = ${report.scores[5]}`, { x: .6, y: 5.5, w: 10.4, h: .6, fontSize: 24, bold: true, color: BLUE, margin: 0 });
+      if (summary) {
+        slide.addText(['Fabrik', 'Process', 'Underprocess'].map((label, i) => `${label}: ${report.metadata[i] || 'Ej angivet'}`).join('\n'), { x: .6, y: 6.45, w: 10.4, h: .95, fontSize: 14, color: GREY, margin: 0, valign: 'top' });
+      }
+    }
+    function sectionPages(section) {
+      const n = section.number;
+      const title = n === 8 ? '8. Övriga kommentarer och observationer' : `${n}. ${section.title}`;
+      const parts = [];
+      if (n === 1) parts.push(['Fabrik', 'Process', 'Underprocess'].map((label, i) => `${label}: ${report.metadata[i] || 'Ej angivet'}`).join('\n'));
+      if (section.score !== null) parts.push(`Vald nivå: ${section.choice}\nPoäng: ${section.score}\n${section.explanation}`);
+      parts.push(`${n === 8 ? section.title : 'Motivering / kommentar'}\n${section.comment.trim() || 'Ej angivet'}`);
+      addTextPages(pptx, title, parts.join('\n\n'), base);
+      const images = evidence.sections[n]?.images || [];
+      for (let at = 0; at < images.length; at += 2) {
+        const slide = base(`${n}. Bilder och observationer`);
+        images.slice(at, at + 2).forEach((image, column) => {
+          const x = .6 + column * 5.45;
+          const w = 5.04, h = 4.4, y = 1.4;
+          // Separate native picture objects retain their original proportions.
+          const ratio = image.width / image.height;
+          let iw = w, ih = w / ratio;
+          if (ih > h) { ih = h; iw = h * ratio; }
+          slide.addImage({ data: image.data, x: x + (w - iw) / 2, y: y + (h - ih) / 2, w: iw, h: ih, altText: image.caption || image.name, objectName: `Fråga ${n} – ${image.name}` });
+          const captionLines = wrapText(image.caption || image.name, w, 16);
+          slide.addText(captionLines.slice(0, 4).join('\n'), { x, y: 5.98, w, h: 1.12, fontSize: 16, color: INK, margin: 0, valign: 'top', objectName: 'Redigerbar bildtext' });
+          // Long captions continue on their own slide instead of being truncated.
+        });
+        for (const image of images.slice(at, at + 2)) {
+          if (wrapText(image.caption || image.name, 5.04, 16).length > 4) addTextPages(pptx, `${n}. Bildtext – ${image.name}`, image.caption || image.name, base);
+        }
+      }
+    }
+    report.sections.filter(section => section.number <= 5).forEach(sectionPages);
+    calculation('6. Ergonomiberäkning');
+    addTextPages(pptx, '7. Resultatförklaring', report.legend.join('\n\n'), base);
+    sectionPages(report.sections.find(section => section.number === 8));
+    const objects = [];
+    evidence.attachments.forEach((file, i) => {
+      const slide = base(`Dokumentbilaga ${i + 1}`);
+      slide.addText(file.name, { x: .6, y: 1.55, w: WIDTH - 1.2, h: .8, fontSize: 23, bold: true, color: INK, margin: 0, valign: 'top', objectName: 'Bilagans filnamn' });
+      const x = .6, y = 2.8, w = 4.7, h = .7;
+      slide.addText('Öppna bilagan', { x, y, w, h, fontSize: 24, bold: true, underline: { color: BLUE }, color: BLUE, margin: 0 });
+      slide.addImage({ data: BLANK_PNG, x, y, w, h, objectName: `KIM_ATTACHMENT_${i}`, altText: `Öppna ${file.name}` });
+      slide.addText('Dubbelklicka på Öppna bilagan i PowerPoint för Windows.\nDokumentet finns inbäddat i denna presentation.', { x: .6, y: 3.85, w: 10.4, h: 1, fontSize: 17, color: GREY, margin: 0, valign: 'top' });
+      const lines = wrapText(file.description || '', 10.4, 18);
+      slide.addText(lines.slice(0, 5).join('\n'), { x: .6, y: 5.2, w: 10.4, h: 1.6, fontSize: 18, color: INK, margin: 0, valign: 'top' });
+      objects.push({ slideNumber: slideCount, file, x, y, w, h });
+      if (lines.length > 5) addTextPages(pptx, `Bilaga ${i + 1} – beskrivning`, file.description, base);
+    });
+    calculation('Sammanfattning – Ergonomianalys KIM 1', true);
+    return embedDocuments(await pptx.write({ outputType: 'arraybuffer' }), objects);
+  }
 
-  window.KimEmbedDocuments = embedDocuments;
   async function exportReport() {
     if (window.KimExportBusy) return;
     window.KimExportBusy = true;
@@ -111,8 +162,8 @@
     try {
       await window.KimEvidence.flush();
       const report = window.KimAnalysis.report(), evidence = structuredClone(window.KimEvidence.getState());
-      const buffer = await window.KimBuildPowerPoint(report, evidence, await R.assets());
-      const filename = R.safeName(['KIM1', ...report.metadata.filter(Boolean)].join('_'));
+      const buffer = await build(report, evidence);
+      const filename = safeName(['KIM1', ...report.metadata.filter(Boolean)].join('_'));
       window.KimEvidence.download(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }), filename + '.pptx');
       window.KimEvidence.message('PowerPoint är klar. Text, tabeller och bilder är redigerbara.');
     } catch (error) {
@@ -125,5 +176,5 @@
     }
   }
   $('pptxBtn').onclick = exportReport;
-  window.KimPowerPoint = { build: (...args) => window.KimBuildPowerPoint(...args) };
+  window.KimPowerPoint = { build };
 })();

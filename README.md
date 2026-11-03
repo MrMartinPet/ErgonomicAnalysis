@@ -6,8 +6,7 @@ Svensk KIM 1-app med Dometics befintliga bedömningsskalor och beräkning.
 - Flera bilder med bildtext på fråga 1–5 och punkt 8.
 - Dokumentbilagor under punkt 8.
 - Tre huvudval: **Exportera PowerPoint**, **Exportera Excel** och **Skriv ut**.
-- PowerPoint i Dometic-stil, A4 liggande, med Gibson/Gibson Light och befintlig logotyp. Helhetsresultatet ligger först på en onepager med riskklass, riskpoäng, faktorernas valda nivåer och motiveringar. Fyra bilder ryms per underlagssida. Upp till tre dokument läggs på sista bildsidan när det finns plats; annars samlas upp till sex per dokumentsida. Långa kommentarer får tätare fortsättningssidor utan att innehåll försvinner.
-- PowerPoint-text, tabeller och foton är separata redigerbara objekt. Gibson behöver finnas installerat på datorn där presentationen öppnas.
+- PowerPoint använder det ursprungliga A4-upplägget med frågorna och bilagorna på separata bilder och en sammanfattning sist. Text, tabeller och foton är redigerbara objekt.
 - Dokumenten bäddas in som OLE Package-objekt. Öppna dem i PowerPoint för Windows.
 - Excel-exporten är en riktig `.xlsx` med numeriska, redigerbara poäng och formler för riskpoäng/riskklass. Bilder och fullständiga längre kommentarer finns i underlaget. Dokumentbilagorna listas i Excel och bäddas in i PowerPoint.
 - Skriv ut ger en onepager följd av bild- och kommentarsunderlag. Webbläsarens utskrift kan också sparas som PDF.
@@ -19,4 +18,4 @@ Appen är statisk och använder medföljande PptxGenJS 4.0.1 och JSZip 3.10.1. L
 
 ## Verifiering
 
-Kör `node tests/export.test.cjs` med Node 18 eller senare. Testet kontrollerar giltiga DrawingML-textankare, ordningen i presentationens XML, unika objekt-ID:n och paketets interna referenser, samt onepagerns placering, Gibson, kompakta sidantal, separata foton, fullständiga långa kommentarer, inbäddade dokument, riktiga Excel-formler och riskgränser. En tolerant förhandsvisning är inte ett kompatibilitetstest för Microsoft PowerPoint.
+Kör `node tests/export.test.cjs` med Node 18 eller senare. Testet kontrollerar paketets interna referenser, sammanfattning, separata foton, långa kommentarer, inbäddade dokument, Excel-formler och riskgränser.
